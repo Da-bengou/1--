@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<!-- saved from url=(0059)file:///D:/0-corsorprojects/2-homeworkcheck/Untitled-1.html -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作业统计管家</title>
+    <style>
+        /* 1. 基础样式：保留你的景观审美粉色调 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, sans-serif;
+            background: linear-gradient(135deg, #FFB6C1 0%, #FFC0CB 50%, #FFB6C1 100%);
+            min-height: 100vh; padding: 20px; color: #FFFFFF;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 25px; }
+        
+        /* 2. 统计看板：让数据更醒目 */
+        .stats {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px);
+            border-radius: 20px; padding: 20px; margin-bottom: 20px; text-align: center;
+        }
+        .stat-number { font-size: 28px; font-weight: bold; display: block; }
+        .stat-label { font-size: 12px; opacity: 0.9; }
+
+        /* 3. 控制按钮：实用至上 */
+        .controls {
+            background: rgba(255, 255, 255, 0.15); border-radius: 20px;
+            padding: 15px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .btn {
+            padding: 12px; border: none; border-radius: 12px; cursor: pointer;
+            font-weight: bold; transition: 0.3s; background: rgba(255, 255, 255, 0.3); color: white;
+        }
+        .btn:hover { background: rgba(255, 255, 255, 0.4); transform: translateY(-2px); }
+        .btn-copy { background: #4CAF50; } /* 微信点名专用绿色 */
+
+        /* 4. 分组卡片布局 */
+        .groups-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
+        }
+        .group-card {
+            background: rgba(255, 255, 255, 0.2); border-radius: 20px; padding: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .group-title { 
+            font-size: 18px; border-bottom: 1px solid rgba(255,255,255,0.3); 
+            padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; 
+        }
+
+        /* 5. 学生名字方块：解决对比度问题 */
+        .student-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .student-item {
+            background: rgba(0, 0, 0, 0.25); /* 深灰色背景，解决白字看不清的问题 */
+            padding: 12px; border-radius: 12px; display: flex; align-items: center;
+            gap: 10px; cursor: pointer; transition: 0.2s; position: relative;
+        }
+        /* 点击变绿的魔法 */
+        .student-item.checked {
+            background: #4CAF50 !important; /* 变成生机勃勃的绿 */
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+        .student-name { flex: 1; font-size: 14px; pointer-events: none; }
+
+        /* 对号图标样式 */
+        .check-box {
+            width: 22px; height: 22px; border: 2px solid white; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .student-item.checked .check-box::after {
+            content: '✓'; font-weight: bold; font-size: 16px;
+        }
+
+        /* 导入弹窗样式 */
+        #importModal {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; color: #333; padding: 25px; border-radius: 20px;
+            width: 90%; max-width: 500px; display: none; z-index: 1000; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        textarea { width: 100%; height: 200px; margin: 15px 0; padding: 10px; border-radius: 10px; border: 1px solid #ddd; font-family: inherit; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌸 寒假作业打卡助手</h1>
+            <div style="margin-top: 10px;">
+                <span id="weekTitle" style="font-weight:bold; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 10px;">寒假第 1 周</span>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div><span class="stat-number" id="tCount">48</span><span class="stat-label">总人数</span></div>
+            <div><span class="stat-number" id="cCount" style="color:#b2ffb2">0</span><span class="stat-label">已完成</span></div>
+            <div><span class="stat-number" id="uCount" style="color:#ffcccc">48</span><span class="stat-label">未交</span></div>
+        </div>
+
+        <div class="controls">
+            <div style="display:flex; gap:10px;">
+                <button class="btn" style="flex:1" onclick="changeWeek(-1)">⬅️ 上一周</button>
+                <button class="btn" style="flex:1" onclick="changeWeek(1)">下一周 ➡️</button>
+            </div>
+            <button class="btn" onclick="showImport()">📋 导入学生名单（按组分）</button>
+            <button class="btn btn-copy" onclick="copyUnfinished()">📢 复制未打卡名单到微信</button>
+        </div>
+
+        <div id="groupsDisplay" class="groups-grid"><div class="group-card">
+                    <div class="group-title">
+                        <span>榜样组</span>
+                        <span style="font-size:12px; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px;">0/11</span>
+                    </div>
+                    <div class="student-grid">
+                        <div class="student-item " onclick="toggle(&#39;央金拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">央金拉姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;中扎西拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">中扎西拉姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;尼麦拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">尼麦拉姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;格绒其卓&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">格绒其卓</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;泽仁巴久&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">泽仁巴久</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;呷玛措姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">呷玛措姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;拥忠卓玛&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">拥忠卓玛</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;小扎西拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">小扎西拉姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;拥忠拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">拥忠拉姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;尼马扎西&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">尼马扎西</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;措吉拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">措吉拉姆</span>
+                        </div></div></div><div class="group-card">
+                    <div class="group-title">
+                        <span>黑马组</span>
+                        <span style="font-size:12px; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px;">0/11</span>
+                    </div>
+                    <div class="student-grid">
+                        <div class="student-item " onclick="toggle(&#39;拥忠迦瓦&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">拥忠迦瓦</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;呷绒青抓&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">呷绒青抓</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;格绒西&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">格绒西</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;扎西多吉&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">扎西多吉</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">拉姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;佣金拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">佣金拉姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;小泽仁翁姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">小泽仁翁姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;彭措娜姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">彭措娜姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;弟弟&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">弟弟</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;德青曲卓&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">德青曲卓</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;白马拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">白马拉姆</span>
+                        </div></div></div><div class="group-card">
+                    <div class="group-title">
+                        <span>黑豹组</span>
+                        <span style="font-size:12px; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px;">0/13</span>
+                    </div>
+                    <div class="student-grid">
+                        <div class="student-item " onclick="toggle(&#39;泽措&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">泽措</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;尔吉绒珠&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">尔吉绒珠</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;大泽仁翁姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">大泽仁翁姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;呷绒尼玛&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">呷绒尼玛</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;大扎西拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">大扎西拉姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;雄巴降泽&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">雄巴降泽</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;扎西龙加&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">扎西龙加</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;其麦批措&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">其麦批措</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;龙卡志玛&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">龙卡志玛</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;拥忠泽仁&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">拥忠泽仁</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;英潘多吉&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">英潘多吉</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;达瓦志玛&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">达瓦志玛</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;扎西拥措&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">扎西拥措</span>
+                        </div></div></div><div class="group-card">
+                    <div class="group-title">
+                        <span>包子组</span>
+                        <span style="font-size:12px; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px;">0/13</span>
+                    </div>
+                    <div class="student-grid">
+                        <div class="student-item " onclick="toggle(&#39;泽仁措姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">泽仁措姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;登孜达吉&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">登孜达吉</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;泽泽扎西&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">泽泽扎西</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;泽翁巴姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">泽翁巴姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;龙翁拉姆&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">龙翁拉姆</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;益西其西&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">益西其西</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;扎西登孜&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">扎西登孜</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;呷绒尼玛&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">呷绒尼玛</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;四郎泽仁&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">四郎泽仁</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;曲批&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">曲批</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;扎西降泽&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">扎西降泽</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;登孜达瓦&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">登孜达瓦</span>
+                        </div>
+                        <div class="student-item " onclick="toggle(&#39;邓珠多吉&#39;)">
+                            <div class="check-box"></div>
+                            <span class="student-name">邓珠多吉</span>
+                        </div></div></div></div>
+    </div>
+
+    <div id="importModal" style="display: none;">
+        <h3>分组导入名单</h3>
+        <p style="font-size:12px; color:#666; margin-top:5px;">格式示例：组名：学生A, 学生B...</p>
+        <textarea id="importText" placeholder="榜样组：央金拉姆, 中扎西拉姆..."></textarea>
+        <div style="display:flex; gap:10px;">
+            <button class="btn" style="background:#4CAF50; flex:1;" onclick="doImport()">确认导入</button>
+            <button class="btn" style="background:#999; flex:1;" onclick="hideImport()">取消</button>
+        </div>
+        <button class="btn" style="background:#ff4444; width:100%; margin-top:10px;" onclick="clearData()">🗑️ 清空所有数据</button>
+    </div>
+
+    <script>
+        // 初始化数据
+        let currentWeek = parseInt(localStorage.getItem('currentWeek')) || 1;
+        let groups = JSON.parse(localStorage.getItem('groups')) || [];
+        let history = JSON.parse(localStorage.getItem('history')) || {};
+
+        function save() {
+            localStorage.setItem('currentWeek', currentWeek);
+            localStorage.setItem('groups', JSON.stringify(groups));
+            localStorage.setItem('history', JSON.stringify(history));
+            render();
+        }
+
+        function render() {
+            document.getElementById('weekTitle').innerText = `寒假第 ${currentWeek} 周`;
+            const container = document.getElementById('groupsDisplay');
+            container.innerHTML = '';
+            
+            let total = 0, done = 0;
+            const weekKey = `w${currentWeek}`;
+            if (!history[weekKey]) history[weekKey] = {};
+
+            if (groups.length === 0) {
+                container.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; opacity:0.6;">还没有学生名单，请先导入</div>';
+            }
+
+            groups.forEach(group => {
+                const card = document.createElement('div');
+                card.className = 'group-card';
+                let gDone = 0;
+                
+                const studentHtml = group.students.map(name => {
+                    const isDone = history[weekKey][name] || false;
+                    total++; if(isDone) { done++; gDone++; }
+                    return `
+                        <div class="student-item ${isDone ? 'checked' : ''}" onclick="toggle('${name}')">
+                            <div class="check-box"></div>
+                            <span class="student-name">${name}</span>
+                        </div>`;
+                }).join('');
+
+                card.innerHTML = `
+                    <div class="group-title">
+                        <span>${group.name}</span>
+                        <span style="font-size:12px; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px;">${gDone}/${group.students.length}</span>
+                    </div>
+                    <div class="student-grid">${studentHtml}</div>`;
+                container.appendChild(card);
+            });
+
+            document.getElementById('tCount').innerText = total;
+            document.getElementById('cCount').innerText = done;
+            document.getElementById('uCount').innerText = total - done;
+        }
+
+        function toggle(name) {
+            const key = `w${currentWeek}`;
+            history[key][name] = !history[key][name];
+            save();
+        }
+
+        function changeWeek(step) {
+            currentWeek = Math.max(1, currentWeek + step);
+            save();
+        }
+
+        function showImport() { document.getElementById('importModal').style.display = 'block'; }
+        function hideImport() { document.getElementById('importModal').style.display = 'none'; }
+
+        function doImport() {
+            const text = document.getElementById('importText').value;
+            const lines = text.split('\n').filter(l => l.includes('：') || l.includes(':'));
+            if (lines.length === 0) return alert('格式不对哦，记得带冒号！');
+            
+            groups = lines.map(line => {
+                const parts = line.split(/[：:]/);
+                return {
+                    name: parts[0].trim().replace(/\*/g, ''),
+                    students: parts[1].split(/[,，]/).map(s => s.trim().replace(/\*/g, ''))
+                };
+            });
+            save();
+            hideImport();
+        }
+
+        function copyUnfinished() {
+            const key = `w${currentWeek}`;
+            let list = [];
+            groups.forEach(g => {
+                g.students.forEach(s => {
+                    if(!history[key][s]) list.push(s);
+                });
+            });
+            if(list.length === 0) return alert('太棒了！所有人已交齐！');
+            const text = `⚠️ 寒假第 ${currentWeek} 周作业未打卡名单：\n${list.join('、')}\n各位组长请督促补交。`;
+            navigator.clipboard.writeText(text);
+            alert('未交名单已成功复制到剪贴板！');
+        }
+
+        function clearData() {
+            if(confirm('警告：这会彻底清空名单和所有记录！确认吗？')) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        render();
+    </script>
+
+</body></html>
